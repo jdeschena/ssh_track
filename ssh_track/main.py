@@ -37,7 +37,12 @@ def main():
     observer = Observer()
     observer.schedule(event_handler, path=args.local_dir, recursive=True)
     observer.start()
-    observer.join()
+    try:
+        observer.join()
+    except KeyboardInterrupt:
+        event_handler.destroy()
+        print("\rGoodbye!")
+        observer.stop()
 
 
 def add_arguments(parser):
@@ -143,7 +148,6 @@ class UploadHandler(FileSystemEventHandler):
         private_key = paramiko.Ed25519Key(filename=private_key_path)
         self.ssh_client.connect(hostname, port, username, pkey=private_key)
         self.sftp = self.ssh_client.open_sftp()
-        self.sftp
 
         clear_screen()
         self.live = Live(_generate_table(self.last_messages))
