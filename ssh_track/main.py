@@ -45,10 +45,10 @@ def add_arguments(parser):
     parser.add_argument("--local_dir", type=str, help="Local directory to track (absolute, recursive).")
     parser.add_argument("--remote_dir", type=str, help="Remote directory to copy to (absolute).")
     parser.add_argument("--hostname", type=str, help="host to ssh into.")
-    parser.add_argument("--port", type=int, default=22, help="port to use for ssh connection.")
+    parser.add_argument("--port", type=int, default=22, help="port to use for ssh connection. Default: 22")
     parser.add_argument("--username", type=str, help="Username on remote machine.")
-    parser.add_argument("--pkey_path", type=str, help="Local path of the public key (absolute).")
-    parser.add_argument("--display_last_k", type=int, default=25, help="Max number of event to display.")
+    parser.add_argument("--pkey_path", type=str, help="Local path of the private Ed25519 key to use (absolute).")
+    parser.add_argument("--display_last_k", type=int, default=25, help="Max number of event to display. Default: 25")
 
 
 def clear_screen():
