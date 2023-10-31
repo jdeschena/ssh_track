@@ -24,6 +24,8 @@ def main():
         with open(args.config_path, "r") as f:
             cfg = yaml.safe_load(f)
             args = OmegaConf.create(cfg)
+    if isinstance(args.ignore_list, str):
+        args.ignore_list = args.ignore_list.split(",")
 
     event_handler = UploadHandler(
         args.local_dir,
@@ -33,7 +35,9 @@ def main():
         args.username,
         args.pkey_path,
         args.display_last_k,
+        args.ignore_list
     )
+
     observer = Observer()
     observer.schedule(event_handler, path=args.local_dir, recursive=True)
     observer.start()
@@ -75,6 +79,10 @@ def add_arguments(parser):
         type=int,
         default=25,
         help="Max number of event to display. Default: 25",
+    )
+    parser.add_argument(
+        "--ignore_list",
+        help="List of content to filter. Eg if '.git' is in the list, all files with '.git' in their path will be ignored"
     )
 
 
@@ -131,6 +139,7 @@ class UploadHandler(FileSystemEventHandler):
         username,
         private_key_path,
         keep_last_k,
+        ignore_list,
     ):
         super().__init__()
         self.local_directory = local_directory
@@ -141,6 +150,7 @@ class UploadHandler(FileSystemEventHandler):
         self.private_key_path = private_key_path
         self.ssh_client = paramiko.SSHClient()
         self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.ignore_list = ignore_list
         # Display stuff
         self.last_messages = []
         self.keep_last_k = keep_last_k
@@ -153,6 +163,16 @@ class UploadHandler(FileSystemEventHandler):
         self.live = Live(_generate_table(self.last_messages))
         self.console = Console()
         self.update_table()
+
+    def should_ignore(self, path):
+        if osp.isdir(path):
+            return True
+
+        for ignore in self.ignore_list:
+            if ignore in path:
+                return True
+
+        return False
 
     def _add_event(self, type, source):
         update = _datetime_tuple()
@@ -171,8 +191,6 @@ class UploadHandler(FileSystemEventHandler):
         self.ssh_client.close()
 
     def on_modified(self, event):
-        if event.is_directory:
-            return
         self.upload_file(event.src_path)
 
     def on_deleted(self, event):
@@ -192,11 +210,13 @@ class UploadHandler(FileSystemEventHandler):
         self._add_event("RMDIR", src_path)
 
     def on_moved(self, event):
-        if event.is_directory:
-            return
         self.move_remote_file(event.src_path, event.dest_path)
 
     def upload_file(self, local_file_path):
+        if self.should_ignore(local_file_path):
+            return
+
+
         remote_file_path = local_file_path.replace(
             self.local_directory, self.remote_directory
         )
@@ -215,6 +235,9 @@ class UploadHandler(FileSystemEventHandler):
         self._add_event("MV/NEW", local_file_path)
 
     def delete_remote_file(self, local_file_path):
+        if self.should_ignore(local_file_path):
+            return
+
         remote_file_path = local_file_path.replace(
             self.local_directory, self.remote_directory
         )
@@ -226,6 +249,9 @@ class UploadHandler(FileSystemEventHandler):
             self._add_event("ERROR RM", local_file_path)
 
     def move_remote_file(self, src_local_path, dest_local_path):
+        if self.should_ignore(src_local_path):
+            return
+
         # Define the remote file paths based on the local paths
         src_remote_path = src_local_path.replace(
             self.local_directory, self.remote_directory
